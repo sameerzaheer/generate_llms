@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>URL Text Generator</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 40px;
+            background-color: #f4f4f4;
+        }
+
+        input[type="text"] {
+            width: 60%;
+            padding: 10px;
+            font-size: 16px;
+        }
+
+        button {
+            padding: 10px 20px;
+            margin-left: 10px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+
+        .section {
+            margin-top: 30px;
+            position: relative;
+        }
+
+        .section-title {
+            font-weight: bold;
+            font-size: 18px;
+            margin-bottom: 10px;
+        }
+
+        .output-box {
+            width: 90%;
+            height: 300px;
+            border: 1px solid #ccc;
+            padding: 10px;
+            overflow-y: scroll;
+            white-space: pre-wrap;
+            background-color: #fff;
+            position: relative;
+            border-radius: 5px;
+        }
+
+        .copy-btn {
+            position: absolute;
+            top: 10px;
+            right: 15px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 4px;
+        }
+
+        .copy-btn svg {
+            width: 20px;
+            height: 20px;
+            fill: #555;
+        }
+
+        .copy-btn:hover svg {
+            fill: #000;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>URL Text Generator</h1>
+    <input type="text" id="urlInput" placeholder="Enter a URL">
+    <button onclick="generateText()">Generate</button>
+
+    <!-- Output Section 1 -->
+    <div class="section">
+        <div class="section-title">Full Generated Text</div>
+        <button class="copy-btn" onclick="copyToClipboard('output1')" title="Copy to clipboard">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 18H8V7h11v16z"/>
+            </svg>
+        </button>
+        <div id="output1" class="output-box"></div>
+    </div>
+
+    <!-- Output Section 2 -->
+    <div class="section">
+        <div class="section-title">Summary / Alternate Output</div>
+        <button class="copy-btn" onclick="copyToClipboard('output2')" title="Copy to clipboard">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 18H8V7h11v16z"/>
+            </svg>
+        </button>
+        <div id="output2" class="output-box"></div>
+    </div>
+
+    <script>
+        function generateText() {
+            const url = document.getElementById('urlInput').value;
+            fetch('/generate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ url: url })
+            })
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('output1').textContent = data.output1;
+                document.getElementById('output2').textContent = data.output2;
+            })
+            .catch(error => {
+                alert("Error generating content: " + error);
+            });
+        }
+
+        function copyToClipboard(elementId) {
+            const text = document.getElementById(elementId).textContent;
+            navigator.clipboard.writeText(text).then(() => {
+                alert("Copied to clipboard!");
+            }).catch(err => {
+                alert("Failed to copy: " + err);
+            });
+        }
+    </script>
+
+</body>
+</html>
