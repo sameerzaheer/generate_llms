@@ -1,5 +1,6 @@
 from flask import Flask, render_template, request, jsonify
-from app.ma
+from app.crawler import create_llms
+from app.alternatives import firecrawl_get
 
 app = Flask(__name__)
 
@@ -11,8 +12,8 @@ def index():
 def generate():
     url = request.json.get('url')
     # Simulate generated text (replace with actual logic)
-    generated_1 = f"Generated content for: {url}\n\n" + "Lorem ipsum " * 400
-    generated_2 = f"Summary or alternate output:\n\n" + "Dolor sit amet " * 80
+    generated_1 = create_llms(url)
+    generated_2 = firecrawl_get(url)
     return jsonify({'output1': generated_1, 'output2': generated_2})
 
 if __name__ == '__main__':

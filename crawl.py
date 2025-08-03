@@ -24,4 +24,4 @@ def crawl(start_url, max_pages=100):
             continue
     return site_map
 
-print(crawl('https://www.firecrawl.dev',10))
+print(crawl('https://www.tryprofound.com/',10))

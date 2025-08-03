@@ -68,10 +68,12 @@ def crawl_site(root_url, max_pages=30):
     return result
 
 def dict_to_markdown_string(crawl_result):
-    markdown_str=""
+    markdown_str="..." + ":"
+    print(len(crawl_result.items()))
     for url, info in crawl_result.items():
         item_str = f"{url}:\n  Title: {info['title']}\n  Index: {info['index']}\n  First sentence: {info['first_sentence'][:80]}\n"
         markdown_str += item_str
+    return markdown_str
 
 def create_llms(url_str):
     crawl_result = crawl_site(url_str)
