@@ -272,13 +272,22 @@
             <input type="text" id="urlInput" placeholder="Enter a URL">
             <button onclick="generateText()">Generate</button>
             <div style="margin-top: 10px;">
-                <label>
+                <label style="margin-right: 20px;">
                     <input type="checkbox" id="scheduleUpdates"> Schedule updates
                 </label>
+                <label>
+                    <input type="checkbox" id="useLLM"> Use LLM
+                </label>
             </div>
-            <div style="margin-top: 15px;">
-                <label for="avoidSubstrings" style="display: block; margin-bottom: 5px; font-weight: bold;">URL substrings to avoid crawling:</label>
-                <textarea id="avoidSubstrings" placeholder="Enter URL substrings to avoid (one per line)&#10;Example:&#10;/admin&#10;/private&#10;/temp" rows="4" style="width: 60%; font-family: monospace;"></textarea>
+            <div style="margin-top: 15px; display: flex; gap: 20px;">
+                <div style="flex: 1;">
+                    <label for="avoidSubstrings" style="display: block; margin-bottom: 5px; font-weight: bold;">URL substrings to avoid crawling:</label>
+                    <textarea id="avoidSubstrings" placeholder="Enter URL substrings to avoid (one per line)&#10;Example:&#10;/admin&#10;/private&#10;/temp" rows="4" style="width: 100%; font-family: monospace;"></textarea>
+                </div>
+                <div style="flex: 1;">
+                    <label for="llmInstructions" style="display: block; margin-bottom: 5px; font-weight: bold;">LLM instructions:</label>
+                    <textarea id="llmInstructions" placeholder="Emphasize our product offerings more so than careers, privacy policy etc." rows="4" style="width: 100%; font-family: Arial, sans-serif;" disabled></textarea>
+                </div>
             </div>
 
             <!-- Spinner (hidden by default) -->
@@ -344,10 +353,24 @@
         let currentData = { output1: '', output2: '' };
         let scheduledTasksData = []; // Store scheduled tasks data
 
+        // Initialize LLM checkbox functionality when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            const useLLMCheckbox = document.getElementById('useLLM');
+            const llmInstructionsTextarea = document.getElementById('llmInstructions');
+            
+            useLLMCheckbox.addEventListener('change', function() {
+                console.log('LLM checkbox changed - checked:', this.checked);
+                llmInstructionsTextarea.disabled = !this.checked;
+                console.log('Textarea disabled:', llmInstructionsTextarea.disabled);
+            });
+        });
+
         function generateText() {
             const url = document.getElementById('urlInput').value;
             const scheduleUpdates = document.getElementById('scheduleUpdates').checked;
             const avoidSubstrings = document.getElementById('avoidSubstrings').value;
+            const useLLM = document.getElementById('useLLM').checked;
+            const llmInstructions = document.getElementById('llmInstructions').value;
 
             // Show spinner
             document.getElementById('spinner').style.display = 'block';
@@ -359,7 +382,9 @@
                 body: JSON.stringify({ 
                     url: url,
                     scheduleUpdates: scheduleUpdates,
-                    avoidSubstrings: avoidSubstrings
+                    avoidSubstrings: avoidSubstrings,
+                    useLLM: useLLM,
+                    llmInstructions: llmInstructions
                 })
             })
             .then(response => response.json())
@@ -471,6 +496,8 @@
                 alert("No result to copy");
             }
         }
+
+
 
         function deleteTask(taskId) {
             if (confirm('Are you sure you want to delete this task?')) {

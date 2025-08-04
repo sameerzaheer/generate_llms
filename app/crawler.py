@@ -244,7 +244,7 @@ def clean_url(url):
     parsed_url = urlparse(url)
     return parsed_url.scheme + "://" + parsed_url.netloc + parsed_url.path
 
-def crawl_site_as_tree(root_url, max_pages=MAX_PAGES, max_depth=MAX_DEPTH):
+def crawl_site_as_tree(root_url, avoid_substrings, max_pages=MAX_PAGES, max_depth=MAX_DEPTH):
     cleaned_root = clean_url(root_url)
     root_domain = cleaned_root
     visited = set()
@@ -290,6 +290,9 @@ def crawl_site_as_tree(root_url, max_pages=MAX_PAGES, max_depth=MAX_DEPTH):
                 if full_url in visited or not is_same_domain(root_domain, full_url):
                     continue
 
+                if any(substring in full_url for substring in avoid_substrings):
+                    continue
+
                 child_node = PageNode(full_url, index=depth + 1)
                 current_node.add_child(child_node)
                 queue.append((child_node, full_url, depth + 1))
@@ -300,9 +303,11 @@ def crawl_site_as_tree(root_url, max_pages=MAX_PAGES, max_depth=MAX_DEPTH):
 def tree_to_markdown_string(root_node):
     return root_node.print_tree_as_markdown()
 
-def create_llms(url_str):
+def create_llms(url_str, avoid_substrings=None):
     print("creating llms for ", url_str, " at time ", datetime.now())
-    rootnode = crawl_site_as_tree(url_str)
+    if avoid_substrings is None:
+        avoid_substrings = []
+    rootnode = crawl_site_as_tree(url_str, avoid_substrings)
     markdown_str = tree_to_markdown_string(rootnode)
     return markdown_str
 
