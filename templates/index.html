@@ -69,6 +69,108 @@
             display: block;
         }
 
+        /* Tab Styles */
+        .tab-container {
+            margin-top: 30px;
+        }
+
+        .tab-buttons {
+            display: flex;
+            border-bottom: 2px solid #ddd;
+            margin-bottom: 20px;
+        }
+
+        .tab-button {
+            padding: 10px 20px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+            border-bottom: 2px solid transparent;
+            transition: all 0.3s;
+        }
+
+        .tab-button.active {
+            border-bottom-color: #3498db;
+            color: #3498db;
+            font-weight: bold;
+        }
+
+        .tab-button:hover {
+            background-color: #f8f9fa;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        /* Table Styles */
+        .scheduled-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            background-color: white;
+            border-radius: 5px;
+            overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .scheduled-table th,
+        .scheduled-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .scheduled-table th {
+            background-color: #f8f9fa;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .scheduled-table tr:hover {
+            background-color: #f5f5f5;
+        }
+
+        .last-result-cell {
+            max-width: 200px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .action-btn {
+            padding: 6px 12px;
+            margin: 2px;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: background-color 0.2s;
+        }
+
+        .copy-btn-table {
+            background-color: #28a745;
+            color: white;
+        }
+
+        .copy-btn-table:hover {
+            background-color: #218838;
+        }
+
+        .delete-btn {
+            background-color: #dc3545;
+            color: white;
+        }
+
+        .delete-btn:hover {
+            background-color: #c82333;
+        }
+
         .output-box {
             width: 90%;
             height: 300px;
@@ -157,50 +259,95 @@
 <body>
 
     <h1>llms.txt Generator</h1>
-    <input type="text" id="urlInput" placeholder="Enter a URL">
-    <button onclick="generateText()">Generate</button>
 
-    <!-- Spinner (hidden by default) -->
-    <div id="spinner" class="spinner"></div>
+    <!-- Tab Container -->
+    <div class="tab-container">
+        <div class="tab-buttons">
+            <button class="tab-button active" onclick="switchTab('generator')">Generator</button>
+            <button class="tab-button" onclick="switchTab('scheduled')">Scheduled llms.txt</button>
+        </div>
 
-    <!-- Output Section 1 -->
-    <div class="section">
-        <div class="section-title" onclick="toggleSection('section1')">
-            Generated llms.txt
-            <button class="toggle-btn" onclick="event.stopPropagation(); toggleSection('section1')">▼</button>
-        </div>
-        <div id="section1" class="section-content">
-            <button class="copy-btn" onclick="copyToClipboard('output1')" title="Copy to clipboard">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-                    <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 18H8V7h11v16z"/>
-                </svg>
-            </button>
-            <div id="output1" class="output-box markdown"></div>
-        </div>
-    </div>
+        <!-- Generator Tab -->
+        <div id="generator-tab" class="tab-content active">
+            <input type="text" id="urlInput" placeholder="Enter a URL">
+            <button onclick="generateText()">Generate</button>
+            <div style="margin-top: 10px;">
+                <label>
+                    <input type="checkbox" id="scheduleUpdates"> Schedule updates
+                </label>
+            </div>
+            <div style="margin-top: 15px;">
+                <label for="avoidSubstrings" style="display: block; margin-bottom: 5px; font-weight: bold;">URL substrings to avoid crawling:</label>
+                <textarea id="avoidSubstrings" placeholder="Enter URL substrings to avoid (one per line)&#10;Example:&#10;/admin&#10;/private&#10;/temp" rows="4" style="width: 60%; font-family: monospace;"></textarea>
+            </div>
 
-    <!-- Output Section 2 -->
-    <div class="section">
-        <div class="section-title" onclick="toggleSection('section2')">
-            llms.txt generated by firecrawl
-            <button class="toggle-btn" onclick="event.stopPropagation(); toggleSection('section2')">▼</button>
+            <!-- Spinner (hidden by default) -->
+            <div id="spinner" class="spinner"></div>
+
+            <!-- Output Section 1 -->
+            <div class="section">
+                <div class="section-title" onclick="toggleSection('section1')">
+                    Generated llms.txt
+                    <button class="toggle-btn" onclick="event.stopPropagation(); toggleSection('section1')">▼</button>
+                </div>
+                <div id="section1" class="section-content">
+                    <button class="copy-btn" onclick="copyToClipboard('output1')" title="Copy to clipboard">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                            <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 18H8V7h11v16z"/>
+                        </svg>
+                    </button>
+                    <div id="output1" class="output-box markdown"></div>
+                </div>
+            </div>
+
+            <!-- Output Section 2 -->
+            <div class="section">
+                <div class="section-title" onclick="toggleSection('section2')">
+                    llms.txt generated by firecrawl
+                    <button class="toggle-btn" onclick="event.stopPropagation(); toggleSection('section2')">▼</button>
+                </div>
+                <div id="section2" class="section-content">
+                    <button class="copy-btn" onclick="copyToClipboard('output2')" title="Copy to clipboard">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                            <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 18H8V7h11v16z"/>
+                        </svg>
+                    </button>
+                    <div id="output2" class="output-box markdown"></div>
+                </div>
+            </div>
         </div>
-        <div id="section2" class="section-content">
-            <button class="copy-btn" onclick="copyToClipboard('output2')" title="Copy to clipboard">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-                    <path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 18H8V7h11v16z"/>
-                </svg>
-            </button>
-            <div id="output2" class="output-box markdown"></div>
+
+        <!-- Scheduled Tab -->
+        <div id="scheduled-tab" class="tab-content">
+            <button onclick="loadScheduledTasks()" style="margin-bottom: 20px;">Refresh Tasks</button>
+            <table class="scheduled-table">
+                <thead>
+                    <tr>
+                        <th>Task ID</th>
+                        <th>Base URL</th>
+                        <th>Time Created</th>
+                        <th>Time Last Run</th>
+                        <th>Last Status</th>
+                        <th>Last Result</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="scheduled-tbody">
+                    <!-- Data will be populated here -->
+                </tbody>
+            </table>
         </div>
     </div>
 
     <script>
         // Global variables to store the generated data
         let currentData = { output1: '', output2: '' };
+        let scheduledTasksData = []; // Store scheduled tasks data
 
         function generateText() {
             const url = document.getElementById('urlInput').value;
+            const scheduleUpdates = document.getElementById('scheduleUpdates').checked;
+            const avoidSubstrings = document.getElementById('avoidSubstrings').value;
 
             // Show spinner
             document.getElementById('spinner').style.display = 'block';
@@ -209,7 +356,11 @@
             fetch('/generate', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ url: url })
+                body: JSON.stringify({ 
+                    url: url,
+                    scheduleUpdates: scheduleUpdates,
+                    avoidSubstrings: avoidSubstrings
+                })
             })
             .then(response => response.json())
             .then(data => {
@@ -248,6 +399,96 @@
             } else {
                 section.classList.add('expanded');
                 toggleBtn.textContent = '▲';
+            }
+        }
+
+        function switchTab(tabName) {
+            // Hide all tab contents
+            const tabContents = document.querySelectorAll('.tab-content');
+            tabContents.forEach(content => content.classList.remove('active'));
+            
+            // Remove active class from all tab buttons
+            const tabButtons = document.querySelectorAll('.tab-button');
+            tabButtons.forEach(button => button.classList.remove('active'));
+            
+            // Show selected tab content
+            document.getElementById(tabName + '-tab').classList.add('active');
+            
+            // Add active class to clicked button
+            event.target.classList.add('active');
+            
+            // Load scheduled tasks if switching to scheduled tab
+            if (tabName === 'scheduled') {
+                loadScheduledTasks();
+            }
+        }
+
+        function loadScheduledTasks() {
+            fetch('/scheduled-tasks')
+                .then(response => response.json())
+                .then(data => {
+                    // Store the data globally
+                    scheduledTasksData = data;
+                    
+                    const tbody = document.getElementById('scheduled-tbody');
+                    tbody.innerHTML = '';
+                    
+                    data.forEach(task => {
+                        const row = document.createElement('tr');
+                        row.innerHTML = `
+                            <td>${task.task_id}</td>
+                            <td>${task.base_url}</td>
+                            <td>${task.time_created}</td>
+                            <td>${task.time_last_run || 'Never'}</td>
+                            <td>${task.last_status || 'N/A'}</td>
+                            <td class="last-result-cell" title="${task.last_result || ''}">${task.last_result || 'N/A'}</td>
+                            <td>
+                                <button class="action-btn copy-btn-table" onclick="copyTaskResult('${task.task_id}')">Copy Result</button>
+                                <button class="action-btn delete-btn" onclick="deleteTask('${task.task_id}')">Delete</button>
+                            </td>
+                        `;
+                        tbody.appendChild(row);
+                    });
+                })
+                .catch(error => {
+                    console.error('Error loading scheduled tasks:', error);
+                    document.getElementById('scheduled-tbody').innerHTML = '<tr><td colspan="7">Error loading tasks</td></tr>';
+                });
+        }
+
+        function copyTaskResult(taskId) {
+            // Find the task in the scheduled tasks data
+            const task = scheduledTasksData.find(t => t.task_id === taskId);
+            
+            if (task && task.last_result && task.last_result !== 'N/A') {
+                navigator.clipboard.writeText(task.last_result).then(() => {
+                    alert("Task result copied to clipboard!");
+                }).catch(err => {
+                    console.error("Copy error:", err);
+                    alert("Failed to copy: " + err);
+                });
+            } else {
+                alert("No result to copy");
+            }
+        }
+
+        function deleteTask(taskId) {
+            if (confirm('Are you sure you want to delete this task?')) {
+                fetch(`/delete/${taskId}`, {
+                    method: 'POST'
+                })
+                .then(response => {
+                    if (response.ok) {
+                        alert('Task deleted successfully!');
+                        loadScheduledTasks(); // Refresh the table
+                    } else {
+                        alert('Failed to delete task');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error deleting task:', error);
+                    alert('Error deleting task: ' + error);
+                });
             }
         }
     </script>

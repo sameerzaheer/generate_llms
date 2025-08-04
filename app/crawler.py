@@ -2,9 +2,15 @@ import requests
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin, urlparse
 import tldextract
+import hashlib
+import re
 from collections import deque
 import math
 from typing import List
+from datetime import datetime, date, timedelta
+
+MAX_PAGES = 100
+MAX_DEPTH = 5
 
 class PageNode:
     def __init__(self, url, index):
@@ -13,6 +19,7 @@ class PageNode:
         self.description = ""
         self.index = index
         self.children: List[PageNode] = []
+        self.content_hash = None
 
     def update(self, title, description):
         self.title = title
@@ -51,6 +58,166 @@ class PageNode:
 
         return printed_tree
 
+import hashlib
+import re
+from bs4 import BeautifulSoup
+
+def clean_html_for_hashing(soup, debug=False):
+    """
+    Clean HTML content by removing dynamic/volatile elements before hashing.
+    Returns cleaned HTML string ready for hashing.
+    """
+    # Make a copy to avoid modifying the original
+    cleaned_soup = BeautifulSoup(str(soup), 'html.parser')
+    
+    # Remove script and style tags entirely
+    for tag in cleaned_soup(['script', 'style', 'noscript']):
+        tag.decompose()
+    
+    # Remove meta tags (often contain timestamps, cache info, etc.)
+    for tag in cleaned_soup.find_all('meta'):
+        tag.decompose()
+    
+    # Remove common dynamic elements - expanded list
+    dynamic_selectors = [
+        # Time-based elements
+        '[data-timestamp]', '[data-time]', '[data-date]',
+        '.timestamp', '.date-updated', '.last-modified', '.time',
+        
+        # Session and tracking
+        '[data-session]', '[data-csrf]', '[data-token]', '[data-nonce]',
+        '.csrf-token', '[name="csrf-token"]', '[name="_token"]',
+        
+        # Analytics and ads
+        '[data-ga]', '[data-gtm]', '[data-analytics]', '[data-track]',
+        '.google-ads', '.advertisement', '.ad-banner', '.tracking-pixel',
+        '[data-ad]', '.ads', '.adsense',
+        
+        # Social media widgets
+        '.facebook-like', '.twitter-tweet', '.instagram-media',
+        '.social-widget', '[data-social]',
+        
+        # Comments and dynamic content
+        '#comments', '.comments-section', '.disqus-thread',
+        '.comment-count', '.comment-form',
+        
+        # Live counters and stats
+        '.view-count', '.visitor-count', '.online-users',
+        '.counter', '.stat-number', '[data-count]',
+        
+        # Forms with dynamic tokens
+        'input[name="csrf-token"]', 'input[name="_token"]',
+        'input[type="hidden"][name*="token"]',
+        
+        # Random/dynamic IDs
+        '[id*="random"]', '[id*="temp"]', '[class*="random"]',
+        '[class*="temp"]', '[data-random]'
+    ]
+    
+    # Remove elements matching dynamic selectors
+    for selector in dynamic_selectors:
+        for element in cleaned_soup.select(selector):
+            element.decompose()
+    
+    # Remove ALL attributes except the most essential ones
+    # This is aggressive but eliminates most dynamic content
+    keep_attrs = {'href', 'src', 'alt', 'title'}  # Only keep truly content-related attributes
+    
+    for tag in cleaned_soup.find_all():
+        attrs_to_remove = []
+        for attr in tag.attrs:
+            if attr not in keep_attrs:
+                attrs_to_remove.append(attr)
+        
+        for attr in attrs_to_remove:
+            del tag.attrs[attr]
+    
+    # Remove form elements entirely (they often have dynamic tokens)
+    for tag in cleaned_soup(['form', 'input', 'textarea', 'select', 'button']):
+        tag.decompose()
+    
+    # Get the cleaned HTML text
+    html_text = str(cleaned_soup)
+    
+    # More aggressive text normalization
+    # Remove all newlines and normalize whitespace
+    html_text = re.sub(r'\s+', ' ', html_text)
+    html_text = re.sub(r'>\s+<', '><', html_text)
+    
+    # Remove HTML comments
+    html_text = re.sub(r'<!--.*?-->', '', html_text, flags=re.DOTALL)
+    
+    # Remove common dynamic patterns in text
+    # Remove timestamps, dates, session IDs
+    html_text = re.sub(r'\b\d{4}-\d{2}-\d{2}[T\s]\d{2}:\d{2}:\d{2}[Z\+\-\d:]*\b', '', html_text)  # ISO dates
+    html_text = re.sub(r'\b[a-f0-9]{32,}\b', '', html_text, re.I)  # Long hex strings (hashes, tokens)
+    html_text = re.sub(r'\b[A-Za-z0-9]{20,}\b', '', html_text)  # Long random strings
+    
+    # Strip leading/trailing whitespace
+    html_text = html_text.strip()
+    
+    if debug:
+        print(f"Cleaned HTML length: {len(html_text)}")
+        print(f"First 500 chars: {html_text[:500]}")
+    
+    return html_text
+
+def generate_content_hash(cleaned_html):
+    """Generate SHA-256 hash of cleaned HTML content."""
+    return hashlib.sha256(cleaned_html.encode('utf-8')).hexdigest()
+
+def debug_content_differences(url):
+    """
+    Helper function to debug what's changing between requests.
+    Run this to see what content is different between two requests.
+    """
+    
+    print("Fetching first version...")
+    response1 = requests.get(url, timeout=5)
+    soup1 = BeautifulSoup(response1.text, 'html.parser')
+    clean1 = clean_html_for_hashing(soup1, debug=True)
+    hash1 = generate_content_hash(clean1)
+    
+    print(f"\nFirst hash: {hash1}")
+    
+    print("\nWaiting 2 seconds...")
+    import time
+    time.sleep(2)
+    
+    print("Fetching second version...")
+    response2 = requests.get(url, timeout=5)
+    soup2 = BeautifulSoup(response2.text, 'html.parser')
+    clean2 = clean_html_for_hashing(soup2, debug=True)
+    hash2 = generate_content_hash(clean2)
+    
+    print(f"\nSecond hash: {hash2}")
+    
+    if hash1 != hash2:
+        print("\n❌ HASHES ARE DIFFERENT!")
+        
+        # Save both versions to files for manual inspection
+        with open('version1.html', 'w', encoding='utf-8') as f:
+            f.write(clean1)
+        with open('version2.html', 'w', encoding='utf-8') as f:
+            f.write(clean2)
+        
+        print("Saved cleaned versions to version1.html and version2.html")
+        print("You can diff these files to see what's changing")
+        
+        # Show a simple character-by-character diff
+        min_len = min(len(clean1), len(clean2))
+        for i in range(min_len):
+            if clean1[i] != clean2[i]:
+                print(f"First difference at position {i}:")
+                print(f"  Version 1: '{clean1[max(0,i-20):i+20]}'")
+                print(f"  Version 2: '{clean2[max(0,i-20):i+20]}'")
+                break
+    else:
+        print("\n✅ Hashes are the same!")
+
+# Test the debugging function:
+# debug_content_differences(current_url)
+
 def get_first_sentence(text):
     if not text:
         return ""
@@ -77,7 +244,7 @@ def clean_url(url):
     parsed_url = urlparse(url)
     return parsed_url.scheme + "://" + parsed_url.netloc + parsed_url.path
 
-def crawl_site_as_tree(root_url, max_pages=3, max_depth=5):
+def crawl_site_as_tree(root_url, max_pages=MAX_PAGES, max_depth=MAX_DEPTH):
     cleaned_root = clean_url(root_url)
     root_domain = cleaned_root
     visited = set()
@@ -105,6 +272,10 @@ def crawl_site_as_tree(root_url, max_pages=3, max_depth=5):
         title = soup.title.string.strip() if soup.title else "No Title"
         texts = soup.get_text(separator=' ', strip=True)
         description = get_description(soup, texts)
+        content_hash = generate_content_hash(clean_html_for_hashing(soup))
+        if content_hash == current_node.content_hash:
+            continue
+        current_node.content_hash = content_hash
 
         current_node.update(title, description)
         count += 1
@@ -130,21 +301,10 @@ def tree_to_markdown_string(root_node):
     return root_node.print_tree_as_markdown()
 
 def create_llms(url_str):
+    print("creating llms for ", url_str, " at time ", datetime.now())
     rootnode = crawl_site_as_tree(url_str)
     markdown_str = tree_to_markdown_string(rootnode)
     return markdown_str
-
-# app/crawler.py
-from celery_worker import celery
-
-@celery.task
-def scheduled_crawl(url):
-    print(f"Crawling {url} for updates...")
-    llms_txt = "-0-" + url 
-    #llms_txt = create_llms(url)  # Your existing function
-    # Compare with old version, update db, notify, etc.
-    return llms_txt
-
 
 # Example usage:
 if __name__ == "__main__":
