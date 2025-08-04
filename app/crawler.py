@@ -8,8 +8,9 @@ from collections import deque
 import math
 from typing import List
 from datetime import datetime, date, timedelta
+from openai import OpenAI
 
-MAX_PAGES = 100
+MAX_PAGES = 20
 MAX_DEPTH = 5
 
 class PageNode:
@@ -244,13 +245,16 @@ def clean_url(url):
     parsed_url = urlparse(url)
     return parsed_url.scheme + "://" + parsed_url.netloc + parsed_url.path
 
-def crawl_site_as_tree(root_url, avoid_substrings, max_pages=MAX_PAGES, max_depth=MAX_DEPTH):
+def crawl_site_as_tree(root_url, avoid_substrings, prev_url_hashmap=None, max_pages=MAX_PAGES, max_depth=MAX_DEPTH):
     cleaned_root = clean_url(root_url)
     root_domain = cleaned_root
     visited = set()
     queue = deque()
 
     root_node = PageNode(cleaned_root, index=0)
+    new_url_hashmap = {}
+    anything_changed = False
+    #print("crawling site with prev_url_hashmap: ", prev_url_hashmap is None)
     queue.append((root_node, cleaned_root, 0))
     visited.add(cleaned_root)
     count = 0
@@ -273,8 +277,13 @@ def crawl_site_as_tree(root_url, avoid_substrings, max_pages=MAX_PAGES, max_dept
         texts = soup.get_text(separator=' ', strip=True)
         description = get_description(soup, texts)
         content_hash = generate_content_hash(clean_html_for_hashing(soup))
-        if content_hash == current_node.content_hash:
-            continue
+        new_url_hashmap[current_url] = content_hash
+        if prev_url_hashmap and current_url in prev_url_hashmap and prev_url_hashmap[current_url] == content_hash:
+            anything_changed = False
+        else:
+            anything_changed = True
+            # if prev_url_hashmap:
+            #     print("something change in content")
         current_node.content_hash = content_hash
 
         current_node.update(title, description)
@@ -298,20 +307,82 @@ def crawl_site_as_tree(root_url, avoid_substrings, max_pages=MAX_PAGES, max_dept
                 queue.append((child_node, full_url, depth + 1))
                 visited.add(full_url)
 
-    return root_node
+    return root_node, new_url_hashmap, anything_changed
 
 def tree_to_markdown_string(root_node):
     return root_node.print_tree_as_markdown()
 
-def create_llms(url_str, avoid_substrings=None):
+def refine_llms_with_openai(llms_str, llm_instructions=None):
+    system_instructions = """
+        I will give you an llms.txt file containing this structure. Your job is to improve it.
+        llms.txt file structure:
+        # Title
+        > Optional description goes here
+        Optional details go here
+        ## Section name 1
+        - [Link title](https://link_url): Optional link details
+        ## Section name 2
+        - [Link title](https://link_url): This link explains the key insights related to the topic.
+        ## Optional
+        - [Link title](https://link_url): Extra information about the link.
+
+        Improvements requested:
+        - Don't change the title with one #
+        - But change the "Section name" (with ##) to be meaningful
+        - having meaningful "Optional link details" (hint look at URL and heading)
+        - re-arranging the sections 
+        - putting all the miscellaneous items into a section called "## Optional"
+        """
+    if llm_instructions:
+        system_instructions += f"\n\Further the website owner instructs: {llm_instructions}"
+    client = OpenAI()
+    print(f'Starting to refine llms with openai with len: {len(llms_str)}')
+    if len(llms_str) > 10000:
+        print("llms_str is too long, truncating it")
+        llms_str = llms_str[:10000]
+
+    response = client.responses.create(
+        model="gpt-4o",
+        input=[
+                {
+                "role": "system",
+                "content": [
+                    {
+                    "type": "input_text",
+                    "text": system_instructions
+                    }
+                ]
+                },
+                {
+                "role": "user",
+                "content": [
+                    {
+                    "type": "input_text",
+                    "text":llms_str
+                    }
+                ]
+                }
+            ],
+            temperature=1
+    )
+    print(f'Refined llms with openai with len: {len(response.output_text)}')
+    return response.output_text
+
+def create_llms(url_str, avoid_substrings=None, use_llm=False, llm_instructions=None, prev_url_hashmap=None, max_pages=20):
     print("creating llms for ", url_str, " at time ", datetime.now())
     if avoid_substrings is None:
         avoid_substrings = []
-    rootnode = crawl_site_as_tree(url_str, avoid_substrings)
+    rootnode, new_url_hashmap, anything_changed = crawl_site_as_tree(url_str, avoid_substrings, prev_url_hashmap, max_pages=max_pages)
     markdown_str = tree_to_markdown_string(rootnode)
-    return markdown_str
+    markdown_str_llm = None
+    print("anything_changed line 375: ", anything_changed)
+    if use_llm and anything_changed:
+        markdown_str_llm = refine_llms_with_openai(markdown_str, llm_instructions)
+    return markdown_str, markdown_str_llm, new_url_hashmap, anything_changed
 
 # Example usage:
 if __name__ == "__main__":
     root = "https://www.tryprofound.com"
-    print(create_llms(root))
+    avoid_substrings = ['/careers', '/contact']
+    use_llm = True
+    print(create_llms(root, avoid_substrings, use_llm))
