@@ -157,10 +157,6 @@ def clean_html_for_hashing(soup, debug=False):
     # Strip leading/trailing whitespace
     html_text = html_text.strip()
     
-    if debug:
-        print(f"Cleaned HTML length: {len(html_text)}")
-        print(f"First 500 chars: {html_text[:500]}")
-    
     return html_text
 
 def generate_content_hash(cleaned_html):
@@ -237,8 +233,8 @@ def get_description(soup, fallback_text):
 
 
 def is_same_domain(base_url, target_url):
-    base_domain = tldextract.extract(base_url).top_domain_under_public_suffix
-    target_domain = tldextract.extract(target_url).top_domain_under_public_suffix
+    base_domain = tldextract.extract(base_url).registered_domain
+    target_domain = tldextract.extract(target_url).registered_domain
     return base_domain == target_domain
 
 def clean_url(url):
@@ -375,7 +371,6 @@ def create_llms(url_str, avoid_substrings=None, use_llm=False, llm_instructions=
     rootnode, new_url_hashmap, anything_changed = crawl_site_as_tree(url_str, avoid_substrings, prev_url_hashmap, max_pages=max_pages)
     markdown_str = tree_to_markdown_string(rootnode)
     markdown_str_llm = None
-    print("anything_changed line 375: ", anything_changed)
     if use_llm and anything_changed:
         markdown_str_llm = refine_llms_with_openai(markdown_str, llm_instructions)
     return markdown_str, markdown_str_llm, new_url_hashmap, anything_changed

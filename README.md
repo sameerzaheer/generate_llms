@@ -1,6 +1,6 @@
 # llms.txt Generator
 
-A web-based tool for automatically generating and maintaining `llms.txt` files for websites. This tool crawls websites, generates structured `llms.txt` content, and can optionally enhance the output using OpenAI's GPT models.
+A deplloyable web app for automatically generating and maintaining `llms.txt` files for websites. This tool crawls websites, generates structured `llms.txt` content, and can optionally enhance the output using OpenAI's GPT models. Last functionality requires a valid OpenAI API key.
 
 ## Features
 
@@ -8,9 +8,8 @@ A web-based tool for automatically generating and maintaining `llms.txt` files f
 - **llms.txt Generation**: Creates structured `llms.txt` files with proper formatting
 - **LLM Enhancement**: Optional AI-powered content improvement using OpenAI GPT
 - **Scheduled Updates**: Automatically monitors websites for changes and updates `llms.txt`
-- **Multiple Output Formats**: Generates regular, LLM-enhanced, and Firecrawl versions
+- **Compare to Firecrawl**: Compares the output to firecrawl
 - **Configurable Crawling**: Customize crawling depth, excluded URLs, and update frequency
-- **Web Interface**: User-friendly web UI for managing tasks and viewing results
 
 ## Prerequisites
 

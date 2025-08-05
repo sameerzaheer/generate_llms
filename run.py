@@ -2,6 +2,7 @@ from flask import Flask, render_template, request, jsonify
 from app.crawler import create_llms
 from app.alternatives import firecrawl_get
 import uuid
+import os
 from datetime import datetime, timedelta
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.interval import IntervalTrigger
@@ -208,11 +209,9 @@ def delete_task(task_id):
         }), 404
 
 if __name__ == '__main__':
-    print("Starting Flask app with APScheduler...")
-    print("Scheduled tasks will run every X seconds")
     print("Press Ctrl+C to stop")
     try:
-        app.run(debug=True)
+        app.run(debug=False, host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
     except KeyboardInterrupt:
         print("\nShutting down scheduler...")
         task_manager.scheduler.shutdown()

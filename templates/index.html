@@ -424,10 +424,21 @@
                     maxPages: maxPages
                 })
             })
-            .then(response => response.json())
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
             .then(data => {
                 // Hide spinner once data is fetched
                 document.getElementById('spinner').style.display = 'none';
+
+                // Check if there's an error in the response
+                if (data.error) {
+                    alert("Error generating content: " + data.error);
+                    return;
+                }
 
                 // Store the data globally
                 currentData = data;
