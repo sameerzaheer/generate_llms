@@ -74,11 +74,22 @@ class ScheduledTask:
 class TaskManager:
     def __init__(self):
         self.tasks = {}
-        self.scheduler = BackgroundScheduler()
+        # Configure scheduler for single worker environment
+        self.scheduler = BackgroundScheduler({
+            'apscheduler.job_defaults.max_instances': 1,  # Only allow 1 instance per job
+            'apscheduler.job_defaults.coalesce': True,    # Combine missed executions
+            'apscheduler.job_defaults.misfire_grace_time': 300  # 5 minutes grace period for missed jobs
+        })
         self.scheduler.start()
     
     def add_task(self, task_id, base_url, trigger_interval_seconds, last_result=None, avoid_url_substring_list=None, use_llm=False, llm_instructions='', new_url_hashmap=None, anything_changed=False, max_pages=20):
         """Add a new task to the manager"""
+        # Limit the number of concurrent tasks to prevent memory issues
+        if len(self.tasks) >= 3:
+            print(f"WARNING: Too many scheduled tasks ({len(self.tasks)}). Removing oldest task.")
+            oldest_task_id = next(iter(self.tasks))
+            self.remove_task(oldest_task_id)
+        
         task = ScheduledTask(task_id, base_url, last_result=last_result, 
                            avoid_url_substring_list=avoid_url_substring_list, 
                            use_llm=use_llm, llm_instructions=llm_instructions,
@@ -124,11 +135,21 @@ class TaskManager:
     
     def _run_task_wrapper(self, task_id):
         """Wrapper function to run a task (for scheduler compatibility)"""
-        task = self.get_task(task_id)
-        if task:
-            task.run()
-        else:
-            print(f"Task {task_id} not found!")
+        try:
+            # Check memory usage before running task
+            import psutil
+            memory_percent = psutil.virtual_memory().percent
+            if memory_percent > 80:
+                print(f"WARNING: High memory usage ({memory_percent}%). Skipping task {task_id}")
+                return
+            
+            task = self.get_task(task_id)
+            if task:
+                task.run()
+            else:
+                print(f"Task {task_id} not found!")
+        except Exception as e:
+            print(f"Error in task {task_id}: {e}")
 
 # Initialize the task manager
 task_manager = TaskManager()
@@ -152,39 +173,44 @@ def index():
 
 @app.route('/generate', methods=['POST'])
 def generate():
-    url = request.json.get('url')
-    schedule_updates = request.json.get('scheduleUpdates', False)
-    avoid_substrings = request.json.get('avoidSubstrings', '')
-    use_llm = request.json.get('useLLM', False)
-    llm_instructions = request.json.get('llmInstructions', '')
-    trigger_interval = request.json.get('triggerInterval', 70)
-    max_pages = request.json.get('maxPages', 20)
+    try:
+        url = request.json.get('url')
+        schedule_updates = request.json.get('scheduleUpdates', False)
+        avoid_substrings = request.json.get('avoidSubstrings', '')
+        use_llm = request.json.get('useLLM', False)
+        llm_instructions = request.json.get('llmInstructions', '')
+        trigger_interval = request.json.get('triggerInterval', 70)
+        max_pages = request.json.get('maxPages', 20)
+        
+        # Parse avoid substrings into a list (split by newlines and filter empty lines)
+        avoid_list = [line.strip() for line in avoid_substrings.split('\n') if line.strip()]
+        
+        print(f"URL: {url}")
+        print(f"Schedule updates: {schedule_updates}")
+        print(f"Use LLM: {use_llm}")
+        print(f"LLM Instructions: {llm_instructions}")
+        print(f"Trigger interval: {trigger_interval} seconds")
+        print(f"Max pages: {max_pages}")
+        print(f"Avoid substrings: {avoid_list}")
+        
+        # Generate llms.txt content
+        generated_llms, generated_llms_llm, new_url_hashmap, anything_changed = create_llms(url, avoid_list, use_llm, llm_instructions, max_pages=max_pages)
+        firecrawl_llms = firecrawl_get(url)
+        
+        # Only create scheduled task if checkbox is checked
+        if schedule_updates:
+            # Create a new scheduled task using the task manager
+            task_id = str(uuid.uuid4())
+            task_manager.add_task(task_id, url, trigger_interval, generated_llms, avoid_list, use_llm, llm_instructions, new_url_hashmap, anything_changed, max_pages)
+            print(f"Generated llms.txt for URL: {url} and created scheduled task with {trigger_interval}s interval")
+        else:
+            print(f"Generated llms.txt for URL: {url} (no scheduling)")
+        
+        return jsonify({'output1': generated_llms, 'output2': firecrawl_llms, 'output3': generated_llms_llm})
     
-    # Parse avoid substrings into a list (split by newlines and filter empty lines)
-    avoid_list = [line.strip() for line in avoid_substrings.split('\n') if line.strip()]
-    
-    print(f"URL: {url}")
-    print(f"Schedule updates: {schedule_updates}")
-    print(f"Use LLM: {use_llm}")
-    print(f"LLM Instructions: {llm_instructions}")
-    print(f"Trigger interval: {trigger_interval} seconds")
-    print(f"Max pages: {max_pages}")
-    print(f"Avoid substrings: {avoid_list}")
-    
-    # Simulate generated text (replace with actual logic)
-    generated_llms, generated_llms_llm, new_url_hashmap, anything_changed = create_llms(url, avoid_list, use_llm, llm_instructions, max_pages=max_pages)
-    firecrawl_llms = firecrawl_get(url)
-    
-    # Only create scheduled task if checkbox is checked
-    if schedule_updates:
-        # Create a new scheduled task using the task manager
-        task_id = str(uuid.uuid4())
-        task_manager.add_task(task_id, url, trigger_interval, generated_llms, avoid_list, use_llm, llm_instructions, new_url_hashmap, anything_changed, max_pages)
-        print(f"Generated llms.txt for URL: {url} and created scheduled task with {trigger_interval}s interval")
-    else:
-        print(f"Generated llms.txt for URL: {url} (no scheduling)")
-    
-    return jsonify({'output1': generated_llms, 'output2': firecrawl_llms, 'output3': generated_llms_llm})
+    except Exception as e:
+        print(f"Error in generate endpoint: {str(e)}")
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/scheduled-tasks')
 def get_scheduled_tasks():
@@ -211,7 +237,7 @@ def delete_task(task_id):
 if __name__ == '__main__':
     print("Press Ctrl+C to stop")
     try:
-        app.run(debug=False, host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
+        app.run(debug=False, host='0.0.0.0', port=int(os.environ.get('PORT', 5001)))
     except KeyboardInterrupt:
         print("\nShutting down scheduler...")
         task_manager.scheduler.shutdown()
